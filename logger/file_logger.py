@@ -8,17 +8,23 @@ from watchdog.events import FileSystemEventHandler, FileSystemMovedEvent
 from logger import collector
 
 WATCH_DIR = "/home/asynctask"
+TRASH_DIR = os.path.expanduser("~/.local/share/Trash/files")
 
 IGNORED_DIRS = [".cache", ".config", ".local", ".vscode", "__pycache__", "courses work"]
 IGNORED_EXT = (".tmp", ".swp", ".lock", ".part", ".db-wal", ".db-shm")
 IGNORED_PREFIX = ("~", ".goutputstream", ".Trash", ".")
 
+IMAGE_EXT = (".png", ".jpg", ".jpeg", ".svg", ".bmp", ".webp")
+
 open_files = {}
 lock_file_map = {}
+recent_actions = {}
 
 IGNORED_PATH_CONTAINS = [
     ".mozilla", ".thunderbird", ".config", ".cache",
-    ".local", ".var", "snap", "libreoffice/share", ".vscode"
+    ".local", ".var", "snap", "libreoffice/share", ".vscode",
+    "firefox", "key4.db", "cert9.db", "places.sqlite", ".sqlite",
+    ".db-wal", ".db-shm", ".lock", "tmp"
 ]
 
 def get_user():
@@ -32,11 +38,7 @@ def is_ignored(path: str) -> bool:
         return True
 
     for part in rel_path.parts:
-        if part in IGNORED_DIRS:
-            return True
-
-    for pattern in IGNORED_PATH_CONTAINS:
-        if pattern in str(abs_path):
+        if part in IGNORED_DIRS or any(pattern in str(abs_path) for pattern in IGNORED_PATH_CONTAINS):
             return True
 
     filename = abs_path.name
@@ -44,6 +46,9 @@ def is_ignored(path: str) -> bool:
         filename.endswith(IGNORED_EXT)
         or filename.startswith(IGNORED_PREFIX)
     )
+
+def is_image(path: str) -> bool:
+    return Path(path).suffix.lower() in IMAGE_EXT
 
 def is_lock_file(path: str) -> bool:
     name = Path(path).name
@@ -85,10 +90,9 @@ def log_action(file_path, action, details=""):
     })
     print(f"[LOGGED] {action.upper()} — {file_path}")
 
-# --- inotify: open/close ---
+# inotify: OPEN / CLOSE
 def monitor_inotify():
     print("🧠 inotify: отслеживание OPEN/CLOSE")
-
     inotify = INotify()
     watch_flags = flags.OPEN | flags.CLOSE_WRITE | flags.CLOSE_NOWRITE
     wd_map = {}
@@ -119,18 +123,26 @@ def monitor_inotify():
                 lock_file_map[file_path] = datetime.now()
                 continue
 
+            # Условие для игнорирования дублированных открытий
+            if file_path in recent_actions:
+                if (datetime.now() - recent_actions[file_path]).total_seconds() < 1:
+                    continue
+
             now = datetime.now()
             mask = flags.from_mask(event.mask)
 
             if flags.OPEN in mask:
+                if is_image(file_path):
+                    continue
                 open_files[file_path] = now
             elif flags.CLOSE_WRITE in mask or flags.CLOSE_NOWRITE in mask:
                 opened_time = open_files.pop(file_path, None)
                 if opened_time:
                     log_to_db(file_path, opened_time, now)
+
         time.sleep(0.05)
 
-# --- watchdog: created / deleted / moved + LibreOffice lock ---
+# Watchdog: created / deleted / moved + lock-обработка
 class FileLoggerHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory or is_ignored(event.src_path):
@@ -143,6 +155,7 @@ class FileLoggerHandler(FileSystemEventHandler):
                 print(f"[LOCK CREATED] → {original}")
             return
 
+        recent_actions[event.src_path] = datetime.now()
         log_action(event.src_path, "created")
 
     def on_deleted(self, event):
@@ -177,16 +190,31 @@ class FileLoggerHandler(FileSystemEventHandler):
         for p in to_remove:
             lock_file_map.pop(p, None)
 
+# Trash логика (отдельно)
+class TrashHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.is_directory:
+            return
+        real_name = Path(event.src_path).name
+        log_action(event.src_path, "deleted", f"Moved to Trash: {real_name}")
+
 def log_file_access():
+    # Основной observer
     observer = Observer()
     handler = FileLoggerHandler()
     observer.schedule(handler, path=WATCH_DIR, recursive=True)
+
+    # Trash observer
+    trash_observer = Observer()
+    trash_observer.schedule(TrashHandler(), path=TRASH_DIR, recursive=True)
+
     observer.start()
+    trash_observer.start()
 
     import threading
     threading.Thread(target=monitor_inotify, daemon=True).start()
 
-    print(f"📁 Мониторинг {WATCH_DIR} запущен (inotify + lock + watchdog)")
+    print(f"📁 Мониторинг {WATCH_DIR} запущен (inotify + lock + watchdog + trash)")
 
     try:
         while True:
@@ -194,4 +222,7 @@ def log_file_access():
             handler.check_stale_locks()  # 👈 проверка "забытых" lock-файлов
     except KeyboardInterrupt:
         observer.stop()
+        trash_observer.stop()
+
     observer.join()
+    trash_observer.join()
