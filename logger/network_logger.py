@@ -1,37 +1,19 @@
 # logger/network_logger.py
-import sqlite3
 import subprocess
 from datetime import datetime
-import os
+import re
 import time
 import requests
-import re
-
-DB_PATH = os.path.join(os.path.dirname(__file__), "activity_logs.db")
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS network_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            username TEXT,
-            remote_ip TEXT,
-            remote_port TEXT,
-            protocol TEXT,
-            process_name TEXT,
-            location TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+import ipaddress
+from logger import collector
 
 def get_user():
-    return subprocess.getoutput("whoami")
+    return subprocess.getoutput("whoami") or "Unknown"
 
-def get_country_from_ip(ip):
+def get_location(ip):
     try:
+        if ipaddress.ip_address(ip).is_private or ip.startswith("127.") or ip == "0.0.0.0":
+            return "Local"
         resp = requests.get(f"https://ipinfo.io/{ip}/country", timeout=2)
         return resp.text.strip()
     except:
@@ -46,58 +28,66 @@ def parse_ss_output():
         try:
             parts = re.split(r'\s+', line)
             proto = parts[0]
-            local = parts[4]
-            remote = parts[5]
-            process_info = parts[-1] if "users:" in parts[-1] else None
+            src = parts[4]
+            dst = parts[5]
+            users_field = parts[-1] if "users:" in parts[-1] else None
 
-            if remote == "*" or remote == "0.0.0.0:*":
-                continue  # неинформативное
+            if ":" not in src or ":" not in dst:
+                continue
 
-            # Парсим IP и порт
-            if "[" in remote:  # IPv6
-                match = re.search(r"\[([^\]]+)\]:(\d+)", remote)
-                if not match:
-                    continue
-                ip, port = match.groups()
-            else:  # IPv4
-                if ':' not in remote:
-                    continue
-                ip, port = remote.rsplit(':', 1)
+            # IPv6
+            if src.startswith('['):
+                src_ip, src_port = re.findall(r"\[([^\]]+)\]:(\d+)", src)[0]
+                dst_ip, dst_port = re.findall(r"\[([^\]]+)\]:(\d+)", dst)[0]
+            else:
+                src_ip, src_port = src.rsplit(':', 1)
+                dst_ip, dst_port = dst.rsplit(':', 1)
 
-            process_name = "Unknown"
-            if process_info:
-                match = re.search(r'\"([^\"]+)\"', process_info)
+            proc_name = "Unknown"
+            if users_field:
+                match = re.search(r'"([^"]+)"', users_field)
                 if match:
-                    process_name = match.group(1)
+                    proc_name = match.group(1)
 
-            connections.append((proto, ip, port, process_name))
-
+            connections.append({
+                "protocol": proto,
+                "src_ip": src_ip,
+                "src_port": src_port,
+                "dst_ip": dst_ip,
+                "dst_port": dst_port,
+                "process_name": proc_name
+            })
         except Exception as e:
             continue
 
     return connections
 
 def log_network_connections():
-    init_db()
     username = get_user()
 
     while True:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         connections = parse_ss_output()
 
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
+        for conn in connections:
+            src_loc = get_location(conn["src_ip"])
+            dst_loc = get_location(conn["dst_ip"])
 
-        for proto, ip, port, proc in connections:
-            country = get_country_from_ip(ip)
-            c.execute('''
-                INSERT INTO network_logs (timestamp, username, remote_ip, remote_port, protocol, process_name, location)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (timestamp, username, ip, port, proto, proc, country))
+            collector.log("network_logs", {
+                "timestamp": timestamp,
+                "username": username,
+                "src_ip": conn["src_ip"],
+                "src_port": conn["src_port"],
+                "dst_ip": conn["dst_ip"],
+                "dst_port": conn["dst_port"],
+                "protocol": conn["protocol"],
+                "process_name": conn["process_name"],
+                "src_location": src_loc,
+                "dst_location": dst_loc
+            })
 
-        conn.commit()
-        conn.close()
         time.sleep(5)
+
 
 if __name__ == "__main__":
     log_network_connections()
