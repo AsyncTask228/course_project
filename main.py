@@ -5,7 +5,8 @@ from logger import (
     db_logger,
     process_logger,
     network_logger,
-    session_tracker
+    session_tracker, 
+    device_logger
 )
 from logger.file_logger import log_file_access
 
@@ -24,6 +25,7 @@ if __name__ == "__main__":
         # threading.Thread(target=network_logger.log_network_connections, daemon=True),
         threading.Thread(target=session_tracker.track_sessions, daemon=True),
         threading.Thread(target=log_file_access, daemon=True),
+        threading.Thread(target=device_logger.monitor_devices, daemon=True)
     ]
 
     for t in threads:

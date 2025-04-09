@@ -14,7 +14,8 @@ TABLE_FIELDS = {
     "auth_logs": ["timestamp", "username", "ip_address", "mac_address"],
     "process_logs": ["timestamp", "username", "pid", "command"],
     "network_logs": ["timestamp", "username", "src_ip", "src_port", "dst_ip", "dst_port", "protocol", "process_name", "src_location", "dst_location"],
-    "sessions": ["username", "login_time", "logout_time"]
+    "sessions": ["username", "login_time", "logout_time"],
+    "device_logs": ["timestamp", "device_name", "device_type", "device_id", "status", "details"]
 }
 
 def init_db():
@@ -41,6 +42,15 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT, login_time TEXT, logout_time TEXT
+    )''')
+    c.execute(''' CREATE TABLE IF NOT EXISTS device_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            device_name TEXT,
+            device_type TEXT,
+            device_id TEXT,
+            status TEXT,
+            details TEXT
     )''')
     conn.commit()
     conn.close()
