@@ -21,10 +21,6 @@ TABLE_FIELDS = {
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS auth_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT, username TEXT, ip_address TEXT, mac_address TEXT
-    )''')
     c.execute('''CREATE TABLE IF NOT EXISTS process_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp TEXT, username TEXT, pid INTEGER, command TEXT
