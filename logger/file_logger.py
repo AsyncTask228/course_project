@@ -10,7 +10,7 @@ from logger import collector
 WATCH_DIR = "/home/asynctask"
 TRASH_DIR = os.path.expanduser("~/.local/share/Trash/files")
 
-IGNORED_DIRS = [".cache", ".config", ".local", ".vscode", "__pycache__", "courses work"]
+IGNORED_DIRS = [".cache", ".config", ".local", ".vscode", "__pycache__", "courses work", ".ssh"]
 IGNORED_EXT = (".tmp", ".swp", ".lock", ".part", ".db-wal", ".db-shm")
 IGNORED_PREFIX = ("~", ".goutputstream", ".Trash", ".")
 

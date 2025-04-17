@@ -2,3 +2,5 @@ psutil
 inotify_simple
 watchdog
 pyudev
+postgresql 
+postgresql-contrib

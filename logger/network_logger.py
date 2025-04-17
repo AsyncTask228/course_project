@@ -87,7 +87,3 @@ def log_network_connections():
             })
 
         time.sleep(5)
-
-
-if __name__ == "__main__":
-    log_network_connections()
