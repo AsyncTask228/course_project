@@ -35,14 +35,14 @@ def init_db():
         src_ip TEXT, src_port TEXT, dst_ip TEXT, dst_port TEXT,
         protocol TEXT, process_name TEXT, src_location TEXT, dst_location TEXT
     )''')
-    c.execute('''CREATE TABLE IF NOT EXISTS sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT,
-    login_time TEXT,
-    logout_time TEXT,
-    terminal TEXT,
-    remote_host TEXT
-    )''')
+    # c.execute('''CREATE TABLE IF NOT EXISTS sessions (
+    # id INTEGER PRIMARY KEY AUTOINCREMENT,
+    # username TEXT,
+    # login_time TEXT,
+    # logout_time TEXT,
+    # terminal TEXT,
+    # remote_host TEXT
+    # )''')
     c.execute(''' CREATE TABLE IF NOT EXISTS device_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT,

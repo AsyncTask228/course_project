@@ -4,11 +4,10 @@ from logger import (
     collector,
     process_logger,
     network_logger,
-    session_tracker, 
     device_logger
 )
 from logger.file_logger import log_file_access
-from auth_logging import auth_logger, ssh_logger
+from auth_logging import auth_logger, session_tracker, ssh_logger, gui_session_tracker
 
 
 if __name__ == "__main__":
@@ -25,7 +24,8 @@ if __name__ == "__main__":
         # threading.Thread(target=network_logger.log_network_connections, daemon=True),
         threading.Thread(target=session_tracker.track_sessions, daemon=True),
         threading.Thread(target=log_file_access, daemon=True),
-        threading.Thread(target=device_logger.monitor_devices, daemon=True), 
+        threading.Thread(target=device_logger.monitor_devices, daemon=True),
+        threading.Thread(target=gui_session_tracker.track_gui_sessions, daemon=True), 
         threading.Thread(target=ssh_logger.track_ssh_connections, daemon=True)
     ]
 

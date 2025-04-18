@@ -6,12 +6,12 @@ from datetime import datetime
 DB_CONFIG = {
     "dbname": "login_events",
     "user": "auth_logger",
-    "password": "your_secure_password",  # ← замени на актуальный
+    "password": "your_secure_password",  # замени
     "host": "localhost",
     "port": "5432"
 }
 
-# Логирование локальной авторизации
+# ✅ Логирование локальной авторизации
 def log_to_postgres(data):
     try:
         conn = psycopg2.connect(**DB_CONFIG)
@@ -38,7 +38,7 @@ def log_to_postgres(data):
     except Exception as e:
         print(f"[PG ERROR] Ошибка при логировании в auth_logs: {e}")
 
-# Логирование удалённых SSH-подключений
+# ✅ Логирование SSH
 def log_remote_connection(data):
     try:
         conn = psycopg2.connect(**DB_CONFIG)
@@ -66,3 +66,31 @@ def log_remote_connection(data):
 
     except Exception as e:
         print(f"[PG ERROR] Ошибка при логировании в remote_connections: {e}")
+
+# Логирование GUI/локальных сессий
+def log_session_to_postgres(data):
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cur = conn.cursor()
+
+        insert_query = sql.SQL("""
+            INSERT INTO sessions (username, login_time, logout_time, terminal, remote_host)
+            VALUES (%s, %s, %s, %s, %s)
+        """)
+
+        cur.execute(insert_query, (
+            data.get("username"),
+            data.get("login_time"),
+            data.get("logout_time"),
+            data.get("terminal"),
+            data.get("remote_host")
+        ))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print("[PG] Записано в sessions:", data)
+
+    except Exception as e:
+        print(f"[PG ERROR] Ошибка при логировании в sessions: {e}")
