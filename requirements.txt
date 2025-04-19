@@ -4,3 +4,4 @@ watchdog
 pyudev
 postgresql 
 postgresql-contrib
+pandas
