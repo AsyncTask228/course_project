@@ -20,13 +20,13 @@ if __name__ == "__main__":
 
     # Список потоков
     threads = [
-        threading.Thread(target=process_logger.log_processes, daemon=True),
-        threading.Thread(target=network_logger.log_network_connections, daemon=True),
-        threading.Thread(target=session_tracker.track_sessions, daemon=True),
+        # threading.Thread(target=process_logger.log_processes, daemon=True),
+        # threading.Thread(target=network_logger.log_network_connections, daemon=True),
+        # threading.Thread(target=session_tracker.track_sessions, daemon=True),
         threading.Thread(target=log_file_access, daemon=True),
         threading.Thread(target=device_logger.monitor_devices, daemon=True),
-        threading.Thread(target=gui_session_tracker.track_gui_sessions, daemon=True), 
-        threading.Thread(target=ssh_logger.track_ssh_connections, daemon=True)
+        # threading.Thread(target=gui_session_tracker.track_gui_sessions, daemon=True), 
+        # threading.Thread(target=ssh_logger.track_ssh_connections, daemon=True)
     ]
 
     for t in threads:
